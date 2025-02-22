@@ -2,10 +2,12 @@
 # -*- coding: utf-8 -*-
 
 import os
+import shlex
 import shutil
 import sys
 from zipfile import ZipFile
 from subprocess import Popen, PIPE
+import subprocess
 
 PONYSAY_VERSION = '3.0.4'
 
@@ -386,60 +388,25 @@ class Setup():
                 if fileout is not None:  fileout.close()
                 if filein  is not None:  filein .close()
 
-        (fileout, filein) = (None, None)
-
-        env = conf['custom-env-python']
-        if env is None:
-            try:
-                (out, err) = Popen(['env', 'python', '--version'], stdout=PIPE, stderr=PIPE).communicate()
-                out = out.decode('utf8', 'replace') + err.decode('utf8', 'replace')
-                out = out.replace('\n', '')
-                env = out.split(' ')[1].split('.')[0]
-                if int(env) < 3:  env = 'python3'
-                else:             env = 'python'
-            except:
-                env = 'python3'
-        mane = False
-        for command in commands:
-            if conf[command] is not None:
-                mane = True
-                break
-        if mane:
+        if any(conf[c] is not None for c in commands):
             for src in ponysaysrc:
-                try:
-                    fileout = open('src/%s.install' % src, 'wb+')
-                    filein = open('src/%s' % src, 'rb')
-                    data = filein.read().decode('utf-8', 'replace')
-
-                    if '#!/usr/bin/env python3' in data:
-                        data = data.replace('#!/usr/bin/env python3', '#!/usr/bin/env ' + env)
-                    else:
-                        data = data.replace('#!/usr/bin/env python', '#!/usr/bin/env ' + env)
-                    data = data.replace('/usr/share/ponysay/', conf['share-dir'] + ('' if conf['share-dir'].endswith('/') else '/'))
-                    data = data.replace('/etc/', conf['sysconf-dir'] + ('' if conf['sysconf-dir'].endswith('/') else '/'))
-                    data = data.replace('\nVERSION = \'dev\'', '\nVERSION = \'%s\'' % (PONYSAY_VERSION))
-
-                    fileout.write(data.encode('utf-8'))
-                finally:
-                    if fileout is not None:  fileout.close()
-                    if filein  is not None:  filein .close()
+                with open('src/%s.install' % src, 'wb+') as fileout:
+                    with open('src/%s' % src, 'rb') as filein:
+                        data = filein.read().decode('utf-8', 'replace')
+                        data = data.replace('/usr/share/ponysay/', conf['share-dir'] + ('' if conf['share-dir'].endswith('/') else '/'))
+                        data = data.replace('/etc/', conf['sysconf-dir'] + ('' if conf['sysconf-dir'].endswith('/') else '/'))
+                        data = data.replace('\nVERSION = \'dev\'', '\nVERSION = \'%s\'' % (PONYSAY_VERSION))
+                        fileout.write(data.encode('utf-8'))
             print('Creating uncompressed zip file ponysay.zip with files from src: ' + ' '.join(ponysaysrc))
-            myzip = None
-            try:
-                myzip = ZipFile('ponysay.zip', 'w')
+            myzip_path = 'ponysay.zip'
+            with ZipFile(myzip_path, 'w') as myzip:
                 for src in ponysaysrc:
                     myzip.write('src/%s.install' % src, src)
-            finally:
-                myzip.close()
-            os.chmod('ponysay.zip', 0o755)
-            try:
-                fileout = open('ponysay.install', 'wb+')
-                filein = open('ponysay.zip', 'rb')
-                fileout.write(('#!/usr/bin/env %s\n' % env).encode('utf-8'))
-                fileout.write(filein.read())
-            finally:
-                if fileout is not None:  fileout.close()
-                if filein  is not None:  filein .close()
+            os.chmod(myzip_path, 0o755)
+            with open(myzip_path, 'rb') as filein:
+                with open('ponysay.install', 'wb+') as fileout:
+                    fileout.write(('#!/usr/bin/env python3\n').encode('utf-8'))
+                    fileout.write(filein.read())
 
         for man in manpages:
             key = 'man-' + man[0]
@@ -509,10 +476,18 @@ class Setup():
         for shell in [item[0] for item in shells]:
             if conf[shell] is not None:
                 for command in commands:
-                    sourceed = 'completion/ponysay.%s' % (command)
-                    generated = 'completion/%s-completion.%s' % (shell, command)
-                    generatorcmd = './completion/auto-auto-complete.py %s --output %s --source %s' % (shell, generated, sourceed)
-                    Popen(generatorcmd.split(' ')).communicate()
+                    sourceed = f'completion/ponysay.{command}'
+                    generated = f'completion/{shell}-completion.{command}'
+                    generatorcmd = [
+                        sys.executable,
+                        './completion/auto-auto-complete.py',
+                        str(shell),
+                        '--output',
+                        str(generated),
+                        '--source',
+                        str(sourceed),
+                    ]
+                    subprocess.run(generatorcmd)
                     if conf[command] is not None:
                         dest = generated + '.install'
                         (fileout, filein) = (None, None)
@@ -555,18 +530,16 @@ class Setup():
             if hasponies and os.path.isdir(sharedir):
                 for toolcommand in ('--dimensions', '--metadata'):
                     if not self.free:
-                        print('%s, %s, %s' % ('./src/ponysaytool.py', toolcommand, sharedir))
-                        Popen(['./src/ponysaytool.py', toolcommand, sharedir], stdin=PIPE, stdout=PIPE, stderr=PIPE).communicate()
+                        _run_helper([sys.executable, "./src/ponysaytool.py", toolcommand, sharedir])
                     else:
-                        params = ['./src/ponysaytool.py', toolcommand, sharedir, '--']
+                        params = [sys.executable, './src/ponysaytool.py', toolcommand, sharedir, '--']
                         for sharefile in os.listdir(sharedir):
                             if sharefile.endswith('.pony') and (sharefile != '.pony'):
                                 if not Setup.validateFreedom(sharedir + '/' + sharefile):
                                     print('Skipping metadata correction for %s/%s, did not pass validation process made by setup settings' % (sharedir, sharefile))
                                 else:
                                     params.append(sharefile)
-                        print('%s, %s, %s (with files)' % ('./src/ponysaytool.py', toolcommand, sharedir))
-                        Popen(params, stdin=PIPE, stdout=PIPE, stderr=PIPE).communicate()
+                        _run_helper(params)
 
         print()
     
@@ -577,11 +550,8 @@ class Setup():
         
         print('\033[1;34m::\033[39mInstalling...\033[0m')
 
-        dests = []
-        for command in commands:
-            if conf[command] is not None:
-                dests.append(conf[command])
-        if len(dests) > 0:
+        dests = [conf[c] for c in commands if conf[c]]
+        if dests:
             self.cp(False, 'ponysay.install', dests)
             print('Setting mode for ponysay.install copies to 755')
             if self.linking == COPY:
@@ -598,10 +568,10 @@ class Setup():
                     os.makedirs(pdir)
                 print('Creating directory ' + dir)
                 os.mkdir(dir)
-                print('Setting permission mode mask for ' + dir + ' to 7777')
-                Popen('chmod -R 7777 -- \'' + dir.replace('\'', '\'\\\'\'') + '\'', shell=True).wait()
-                print('Setting group for ' + dir + ' users')
-                Popen('chown -R :users -- \'' + dir.replace('\'', '\'\\\'\'') + '\'', shell=True).wait()
+                print(f'Setting permission mode mask for {dir} to 7777')
+                _run_helper(['chmod', '-R', '7777', '--', dir])
+                print(f'Setting group for {dir} users')
+                _run_helper(['chmod', '-R', ":users", '--', dir])
         for shell in [item[0] for item in shells]:
             if conf[shell] is not None:
                 for command in commands:
@@ -1234,6 +1204,12 @@ class ArgParser():
                 print()
         print()
 
+
+def _run_helper(cmd: list[os.PathLike]) -> None:
+    """Wrapper around subprocess.run for printing."""
+    printable = " ".join(cmd)
+    print(f'Running: `{printable}`')
+    subprocess.run(cmd)
 
 if __name__ == '__main__':
     Setup()

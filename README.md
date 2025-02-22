@@ -1,4 +1,9 @@
-`ponysay` — cowsay reimplemention for ponies.
+# ponysay-modern: A reworked ponysay!
+
+This is a heavily modified fork of https://github.com/erkin/ponysay,
+intended for long term, modern maintenance and expansion.
+
+---
 
 ![Derp](http://i.imgur.com/xOJbE.png)
 
@@ -55,7 +60,7 @@ The package is in the official repositories as `community/ponysay`. A Git versio
 #### Chakra
 A git version of the package is available as `ponysay-git` in CCR, alongside a stable package called `ponysay` thanks to an upstream.
 
-#### x86_64 (64bit) Linux
+#### x86\_64 (64bit) Linux
 The package can be installed via [Homebrew on Linux (Linuxbrew)](https://docs.brew.sh/Homebrew-on-Linux).
 Linuxbrew formula is [available](https://formulae.brew.sh/formula-linux/ponysay).
 

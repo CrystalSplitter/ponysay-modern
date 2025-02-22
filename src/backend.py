@@ -372,6 +372,9 @@ class Backend():
         
         if balloonLines is not None:
             for line in balloonLines[balloonLine:]:
+                if line is None:
+                    # I don't know why the fuck this is sometimes None.
+                    continue
                 data = ' ' * (balloonIndent - indent) + line + '\n'
                 for b in data:
                     self.output += b + colourstack.feed(b);

@@ -4,12 +4,6 @@ _/
 /*.pony
 
 
-## Hidden files
-
-.*
-!.git*
-
-
 ## Backup files
 
 *~
@@ -67,3 +61,9 @@ _/
 __pycache__/
 *.pyc
 
+
+## Packaging directories/outputs
+
+result
+dist
+outputs

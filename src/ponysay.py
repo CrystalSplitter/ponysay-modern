@@ -32,7 +32,7 @@ the colon.
 from common import *
 from backend import *
 from balloon import *
-from spellocorrecter import *
+from spellocorrecter import SpelloCorrecter
 from ucs import *
 from kms import *
 import lists
@@ -814,7 +814,10 @@ class Ponysay():
         @param  :str             The file name of the balloon, will be `None` iff `names` is `None`
         '''
         ## Stop if there is no choosen balloon
-        if names is None:
+        if not names:
+            return None
+        names = [n for n in names if n is not None]
+        if not names:
             return None
         
         ## Get all balloons

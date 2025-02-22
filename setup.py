@@ -9,7 +9,7 @@ from zipfile import ZipFile
 from subprocess import Popen, PIPE
 import subprocess
 
-PONYSAY_VERSION = '3.0.4'
+PONYSAY_VERSION = 'unstable-2025-02-21'
 
 project_dir = os.path.dirname(__file__)
 

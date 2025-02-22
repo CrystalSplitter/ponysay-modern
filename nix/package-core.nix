@@ -8,7 +8,7 @@
 
 stdenv.mkDerivation {
   pname = "ponysay-modern-${shell-type}";
-  version = "unstable-2025-02-20";
+  version = "unstable-2025-02-21";
 
   src = ./..;
 
